@@ -1,0 +1,10 @@
+# MCP Server Dependencies
+mcp>=1.0.0
+pydantic>=2.0.0
+anyio>=4.0.0
+
+# Existing Sage dependencies
+aiohttp>=3.8.0
+cryptography>=41.0.0
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

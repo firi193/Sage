@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "sage-api-key-manager": {
+      "command": "python",
+      "args": ["sage_mcp_server.py"],
+      "env": {
+        "PYTHONPATH": ".",
+        "SAGE_LOG_LEVEL": "INFO"
+      },
+      "description": "Secure API key management and proxying service for Coral agents",
+      "capabilities": [
+        "store_api_key",
+        "grant_key_access", 
+        "proxy_api_call",
+        "list_my_keys",
+        "view_audit_logs",
+        "get_usage_statistics",
+        "revoke_api_key"
+      ]
+    }
+  }
+}

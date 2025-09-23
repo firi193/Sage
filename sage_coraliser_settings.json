@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "sage_mcp": {
+      "transport": "sse",
+      "url": "http://172.30.208.1:8001/mcp",
+      "description": "Sage API Key Management and Proxy Service"
+    }
+  }
+}
