@@ -33,9 +33,11 @@ class KeyStorageService:
     def _init_database(self) -> None:
         """Initialize database with required tables"""
         with get_db_connection('keys') as conn:
+            cursor = conn.cursor()
+            
             if is_postgres():
                 # PostgreSQL table creation
-                conn.execute("""
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS sage_keys_stored_keys (
                         key_id TEXT PRIMARY KEY,
                         owner_id TEXT NOT NULL,
@@ -50,18 +52,18 @@ class KeyStorageService:
                 """)
                 
                 # Create indexes for better query performance
-                conn.execute("""
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_owner_id 
                     ON sage_keys_stored_keys(owner_id)
                 """)
                 
-                conn.execute("""
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_active_keys 
                     ON sage_keys_stored_keys(is_active, owner_id)
                 """)
             else:
                 # SQLite table creation
-                conn.execute("""
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS stored_keys (
                         key_id TEXT PRIMARY KEY,
                         owner_id TEXT NOT NULL,
@@ -76,12 +78,12 @@ class KeyStorageService:
                 """)
                 
                 # Create indexes for better query performance
-                conn.execute("""
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_owner_id 
                     ON stored_keys(owner_id)
                 """)
                 
-                conn.execute("""
+                cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_active_keys 
                     ON stored_keys(is_active, owner_id)
                 """)
@@ -100,14 +102,11 @@ class KeyStorageService:
     def _get_connection(self):
         """Context manager for database connections"""
         with get_db_connection('keys') as conn:
-            if is_postgres():
-                # PostgreSQL connection
-                conn.row_factory = None  # PostgreSQL doesn't use row_factory
-                yield conn
-            else:
-                # SQLite connection
-                conn.row_factory = sqlite3.Row  # Enable column access by name
-                yield conn
+            cursor = conn.cursor()
+            try:
+                yield cursor
+            finally:
+                cursor.close()
     
     def store_key(self, stored_key: StoredKey) -> bool:
         """
@@ -123,11 +122,11 @@ class KeyStorageService:
             raise ValueError("Invalid StoredKey instance")
         
         try:
-            with self._get_connection() as conn:
+            with self._get_connection() as cursor:
                 table_name = self._get_table_name()
                 placeholder = self._get_param_placeholder()
                 
-                conn.execute(f"""
+                cursor.execute(f"""
                     INSERT INTO {table_name} 
                     (key_id, owner_id, key_name, encrypted_key, created_at, 
                      last_rotated, is_active, coral_session_id)
@@ -143,7 +142,6 @@ class KeyStorageService:
                     1 if stored_key.is_active else 0,
                     stored_key.coral_session_id
                 ))
-                conn.commit()
                 return True
         except (sqlite3.IntegrityError, Exception) as e:
             # Key already exists or constraint violation
@@ -164,11 +162,11 @@ class KeyStorageService:
             StoredKey instance if found, None otherwise
         """
         try:
-            with self._get_connection() as conn:
+            with self._get_connection() as cursor:
                 table_name = self._get_table_name()
                 placeholder = self._get_param_placeholder()
                 
-                cursor = conn.execute(f"""
+                cursor.execute(f"""
                     SELECT * FROM {table_name} WHERE key_id = {placeholder}
                 """, (key_id,))
                 row = cursor.fetchone()
