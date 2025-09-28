@@ -285,8 +285,11 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    UPDATE stored_keys SET is_active = 0 WHERE key_id = ?
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                cursor = conn.execute(f"""
+                    UPDATE {table_name} SET is_active = 0 WHERE key_id = {placeholder}
                 """, (key_id,))
                 conn.commit()
                 return cursor.rowcount > 0
@@ -306,34 +309,51 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    SELECT 1 FROM stored_keys 
-                    WHERE key_id = ? AND owner_id = ?
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                cursor = conn.execute(f"""
+                    SELECT 1 FROM {table_name} 
+                    WHERE key_id = {placeholder} AND owner_id = {placeholder}
                 """, (key_id, owner_id))
                 return cursor.fetchone() is not None
         except Exception:
             return False
     
-    def _row_to_stored_key(self, row: sqlite3.Row) -> StoredKey:
+    def _row_to_stored_key(self, row) -> StoredKey:
         """
-        Convert SQLite row to StoredKey instance
+        Convert database row to StoredKey instance
         
         Args:
-            row: SQLite row object
+            row: Database row object (SQLite Row or PostgreSQL tuple)
             
         Returns:
             StoredKey instance
         """
-        return StoredKey(
-            key_id=row['key_id'],
-            owner_id=row['owner_id'],
-            key_name=row['key_name'],
-            encrypted_key=row['encrypted_key'],
-            created_at=datetime.fromisoformat(row['created_at']),
-            last_rotated=datetime.fromisoformat(row['last_rotated']),
-            is_active=bool(row['is_active']),
-            coral_session_id=row['coral_session_id']
-        )
+        if is_postgres():
+            # PostgreSQL returns tuples
+            return StoredKey(
+                key_id=row[0],
+                owner_id=row[1],
+                key_name=row[2],
+                encrypted_key=row[3],
+                created_at=datetime.fromisoformat(row[4]),
+                last_rotated=datetime.fromisoformat(row[5]),
+                is_active=bool(row[6]),
+                coral_session_id=row[7]
+            )
+        else:
+            # SQLite returns Row objects
+            return StoredKey(
+                key_id=row['key_id'],
+                owner_id=row['owner_id'],
+                key_name=row['key_name'],
+                encrypted_key=row['encrypted_key'],
+                created_at=datetime.fromisoformat(row['created_at']),
+                last_rotated=datetime.fromisoformat(row['last_rotated']),
+                is_active=bool(row['is_active']),
+                coral_session_id=row['coral_session_id']
+            )
     
     def get_storage_stats(self) -> Dict[str, Any]:
         """
@@ -344,27 +364,38 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
+                table_name = self._get_table_name()
+                
+                cursor = conn.execute(f"""
                     SELECT 
                         COUNT(*) as total_keys,
                         COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_keys,
                         COUNT(DISTINCT owner_id) as unique_owners
-                    FROM stored_keys
+                    FROM {table_name}
                 """)
                 row = cursor.fetchone()
                 
-                return {
-                    'total_keys': row['total_keys'],
-                    'active_keys': row['active_keys'],
-                    'unique_owners': row['unique_owners'],
-                    'database_path': self.db_path,
-                    'database_exists': os.path.exists(self.db_path)
-                }
+                if is_postgres():
+                    return {
+                        'total_keys': row[0],
+                        'active_keys': row[1],
+                        'unique_owners': row[2],
+                        'database_type': 'PostgreSQL',
+                        'table_name': table_name
+                    }
+                else:
+                    return {
+                        'total_keys': row['total_keys'],
+                        'active_keys': row['active_keys'],
+                        'unique_owners': row['unique_owners'],
+                        'database_type': 'SQLite',
+                        'table_name': table_name
+                    }
         except Exception:
             return {
                 'total_keys': 0,
                 'active_keys': 0,
                 'unique_owners': 0,
-                'database_path': self.db_path,
-                'database_exists': False
+                'database_type': 'Unknown',
+                'table_name': 'unknown'
             }
