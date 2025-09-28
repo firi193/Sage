@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Sage API Key Manager</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <h1>Debug Page</h1>
+        <button class="btn-primary" onclick="testModal()">Test Modal</button>
+        <button class="btn-primary" onclick="showAddKeyForm()">Add Key (Original)</button>
+        
+        <div id="debug-info">
+            <h3>Debug Info:</h3>
+            <div id="debug-output"></div>
+        </div>
+        
+        <!-- Add Key Modal -->
+        <div class="modal" id="add-key-modal">
+            <div class="modal-content">
+                <h3>Add New API Key</h3>
+                <form id="add-key-form" data-form-type="add-key">
+                    <input type="text" name="key_name" placeholder="Key Name" required>
+                    <select name="environment" required>
+                        <option value="">Select Environment</option>
+                        <option value="staging">Staging</option>
+                        <option value="prod">Production</option>
+                    </select>
+                    <textarea name="api_key" placeholder="API Key" required rows="3"></textarea>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn-primary">Add Key</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        function testModal() {
+            console.log('testModal called');
+            const modal = document.getElementById('add-key-modal');
+            if (modal) {
+                modal.classList.add('active');
+                console.log('Modal should be visible');
+            } else {
+                console.error('Modal not found');
+            }
+        }
+        
+        function updateDebugInfo() {
+            const debugOutput = document.getElementById('debug-output');
+            debugOutput.innerHTML = `
+                <p>showAddKeyForm available: ${typeof window.showAddKeyForm}</p>
+                <p>modalManager available: ${typeof window.modalManager}</p>
+                <p>closeModal available: ${typeof window.closeModal}</p>
+                <p>Modal element exists: ${document.getElementById('add-key-modal') ? 'Yes' : 'No'}</p>
+            `;
+        }
+        
+        // Update debug info when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(updateDebugInfo, 1000);
+        });
+    </script>
+</body>
+</html>

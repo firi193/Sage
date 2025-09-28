@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Test - Sage UI</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        button { margin: 5px; padding: 10px 15px; }
+    </style>
+</head>
+<body>
+    <h1>Sage UI Navigation Test</h1>
+    
+    <div id="test-results"></div>
+    
+    <h2>Manual Tests</h2>
+    <p>Open the main Sage UI and test the following:</p>
+    <ul>
+        <li>Click on each navigation tab (Keys, Grants, Logs)</li>
+        <li>Use keyboard navigation (Tab to focus, Arrow keys to move, Enter/Space to activate)</li>
+        <li>Use Alt+1, Alt+2, Alt+3 shortcuts</li>
+        <li>Check URL hash updates when switching views</li>
+        <li>Test responsive behavior on mobile screen sizes</li>
+        <li>Verify ARIA attributes are present for screen readers</li>
+    </ul>
+    
+    <button onclick="openSageUI()">Open Sage UI</button>
+    <button onclick="runAutomatedTests()">Run Automated Tests</button>
+    
+    <script>
+        function openSageUI() {
+            window.open('sage_ui/index.html', '_blank');
+        }
+        
+        function runAutomatedTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h2>Automated Test Results</h2>';
+            
+            // Test 1: Check if HTML structure exists
+            fetch('sage_ui/index.html')
+                .then(response => response.text())
+                .then(html => {
+                    const tests = [
+                        {
+                            name: 'Navigation buttons exist',
+                            test: () => html.includes('data-view="keys"') && html.includes('data-view="grants"') && html.includes('data-view="logs"')
+                        },
+                        {
+                            name: 'ARIA attributes present',
+                            test: () => html.includes('role="tabpanel"') && html.includes('aria-labelledby')
+                        },
+                        {
+                            name: 'View containers exist',
+                            test: () => html.includes('id="keys-view"') && html.includes('id="grants-view"') && html.includes('id="logs-view"')
+                        },
+                        {
+                            name: 'CSS files linked',
+                            test: () => html.includes('css/main.css') && html.includes('css/components.css')
+                        },
+                        {
+                            name: 'JavaScript files linked',
+                            test: () => html.includes('js/app.js') && html.includes('js/utils.js') && html.includes('js/components.js')
+                        }
+                    ];
+                    
+                    tests.forEach(test => {
+                        const passed = test.test();
+                        const div = document.createElement('div');
+                        div.className = `test-result ${passed ? 'pass' : 'fail'}`;
+                        div.textContent = `${test.name}: ${passed ? 'PASS' : 'FAIL'}`;
+                        results.appendChild(div);
+                    });
+                })
+                .catch(err => {
+                    const div = document.createElement('div');
+                    div.className = 'test-result fail';
+                    div.textContent = `Error running tests: ${err.message}`;
+                    results.appendChild(div);
+                });
+        }
+    </script>
+</body>
+</html>

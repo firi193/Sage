@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Logs Functionality</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        body {
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .test-controls {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 0.375rem;
+        }
+        .test-controls button {
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Logs Functionality Test</h1>
+        
+        <div class="test-controls">
+            <h3>Test Controls</h3>
+            <button class="btn-primary" onclick="testLoadLogs()">Load Logs</button>
+            <button class="btn-primary" onclick="testFilterByKey()">Filter by Key</button>
+            <button class="btn-primary" onclick="testFilterByTime()">Filter by Time (7d)</button>
+            <button class="btn-secondary" onclick="testClearFilters()">Clear Filters</button>
+            <button class="btn-secondary" onclick="testShowEmpty()">Show Empty State</button>
+            <button class="btn-secondary" onclick="testShowLoading()">Show Loading</button>
+        </div>
+
+        <div class="logs-section">
+            <div class="section-header">
+                <h2>Usage Logs</h2>
+                <div class="logs-filters">
+                    <select id="key-filter-logs" aria-label="Filter logs by key">
+                        <option value="">All Keys</option>
+                        <option value="key-1">OpenAI Production (prod)</option>
+                        <option value="key-2">OpenAI Staging (staging)</option>
+                    </select>
+                    <select id="time-filter" aria-label="Filter logs by time period">
+                        <option value="24h">Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="logs-container">
+                <div class="logs-table-wrapper">
+                    <table class="logs-table" id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Agent/App ID</th>
+                                <th>Key</th>
+                                <th>Endpoint</th>
+                                <th>Status</th>
+                                <th>Response Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                            <!-- Log entries will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="logs-empty" id="logs-empty" style="display: none;">
+                    <div class="placeholder-content">
+                        <p>No usage logs found for the selected filters.</p>
+                    </div>
+                </div>
+                
+                <div class="logs-loading" id="logs-loading" style="display: none;">
+                    <div class="placeholder-content">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                        <p>Loading usage logs...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notifications"></div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Mock keys manager for testing
+        window.keysManager = {
+            keys: [
+                { key_id: 'key-1', key_name: 'OpenAI Production', environment: 'prod', getDisplayName: function() { return this.key_name + ' (' + this.environment + ')'; } },
+                { key_id: 'key-2', key_name: 'OpenAI Staging', environment: 'staging', getDisplayName: function() { return this.key_name + ' (' + this.environment + ')'; } }
+            ]
+        };
+    </script>
+    <script src="js/components.js"></script>
+
+    <script>
+        // Test functions
+        async function testLoadLogs() {
+            console.log('Testing load logs...');
+            if (window.logsManager) {
+                await window.logsManager.loadLogs();
+            }
+        }
+
+        function testFilterByKey() {
+            console.log('Testing filter by key...');
+            if (window.logsManager) {
+                window.logsManager.setKeyFilter('key-1');
+            }
+        }
+
+        function testFilterByTime() {
+            console.log('Testing filter by time...');
+            if (window.logsManager) {
+                window.logsManager.setTimeFilter('7d');
+            }
+        }
+
+        function testClearFilters() {
+            console.log('Testing clear filters...');
+            if (window.logsManager) {
+                window.logsManager.clearFilters();
+            }
+        }
+
+        function testShowEmpty() {
+            console.log('Testing empty state...');
+            if (window.logsManager) {
+                window.logsManager.showEmptyState('Test empty state message');
+            }
+        }
+
+        function testShowLoading() {
+            console.log('Testing loading state...');
+            if (window.logsManager) {
+                window.logsManager.showLoadingState();
+                setTimeout(() => {
+                    window.logsManager.hideLoadingState();
+                    window.logsManager.showTable();
+                }, 2000);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Test page loaded');
+            if (window.logsManager) {
+                window.logsManager.populateKeyFilter(window.keysManager.keys);
+                console.log('LogsManager initialized and ready for testing');
+            }
+        });
+    </script>
+</body>
+</html>

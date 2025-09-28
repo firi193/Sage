@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sage API Client Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        button:hover { background: #0056b3; }
+        .loading { opacity: 0.6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>Sage API Client Test</h1>
+    
+    <div class="test-section">
+        <h2>API Client Initialization</h2>
+        <button onclick="testAPIClientInit()">Test API Client Init</button>
+        <div id="init-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Error Handling</h2>
+        <button onclick="testErrorHandling()">Test Error Handling</button>
+        <div id="error-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Loading State Management</h2>
+        <button onclick="testLoadingStates()">Test Loading States</button>
+        <div id="loading-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Validation</h2>
+        <button onclick="testValidation()">Test Form Validation</button>
+        <div id="validation-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Notification System</h2>
+        <button onclick="testNotifications()">Test Notifications</button>
+        <div id="notification-result"></div>
+    </div>
+
+    <!-- Include the utility files -->
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    
+    <script>
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="test-result ${type}">${message}</div>`;
+        }
+        
+        function testAPIClientInit() {
+            try {
+                // Test if API client is properly initialized
+                if (window.sageAPI && typeof window.sageAPI.request === 'function') {
+                    showResult('init-result', '✓ API Client initialized successfully', 'success');
+                } else {
+                    showResult('init-result', '✗ API Client not properly initialized', 'error');
+                }
+                
+                // Test if utility classes are available
+                if (window.notificationManager && window.loadingStateManager && window.requestUtils) {
+                    showResult('init-result', '✓ All utility classes initialized successfully', 'success');
+                } else {
+                    showResult('init-result', '✗ Some utility classes missing', 'error');
+                }
+            } catch (error) {
+                showResult('init-result', `✗ Error during initialization test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testErrorHandling() {
+            try {
+                // Test APIError class
+                const error = new APIError('Test error', 404, { test: true });
+                
+                if (error.name === 'APIError' && error.status === 404 && error.userMessage) {
+                    showResult('error-result', '✓ APIError class working correctly', 'success');
+                } else {
+                    showResult('error-result', '✗ APIError class not working properly', 'error');
+                }
+                
+                // Test error message generation
+                const error500 = new APIError('Server error', 500);
+                const error400 = new APIError('Bad request', 400);
+                
+                if (error500.userMessage.includes('Server error') && error400.userMessage.includes('Invalid request')) {
+                    showResult('error-result', '✓ Error message generation working', 'success');
+                } else {
+                    showResult('error-result', '✗ Error message generation not working', 'error');
+                }
+            } catch (error) {
+                showResult('error-result', `✗ Error handling test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testLoadingStates() {
+            try {
+                const testElement = document.createElement('div');
+                testElement.id = 'test-loading-element';
+                testElement.textContent = 'Test Element';
+                document.body.appendChild(testElement);
+                
+                // Test loading state management
+                window.loadingStateManager.addLoader('test-loader');
+                
+                if (window.loadingStateManager.hasActiveLoaders()) {
+                    showResult('loading-result', '✓ Loading state management working', 'success');
+                } else {
+                    showResult('loading-result', '✗ Loading state management not working', 'error');
+                }
+                
+                // Clean up
+                window.loadingStateManager.removeLoader('test-loader');
+                testElement.remove();
+                
+                showResult('loading-result', '✓ Loading state tests completed', 'success');
+            } catch (error) {
+                showResult('loading-result', `✗ Loading state test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testValidation() {
+            try {
+                // Test key validation
+                const validKeyData = {
+                    key_name: 'test-key',
+                    environment: 'staging',
+                    api_key: 'test-api-key-123'
+                };
+                
+                const invalidKeyData = {
+                    key_name: '',
+                    environment: 'invalid',
+                    api_key: ''
+                };
+                
+                // Valid data should not throw
+                try {
+                    window.sageAPI.validateKeyData(validKeyData);
+                    showResult('validation-result', '✓ Valid key data validation passed', 'success');
+                } catch (error) {
+                    showResult('validation-result', '✗ Valid key data validation failed', 'error');
+                    return;
+                }
+                
+                // Invalid data should throw
+                try {
+                    window.sageAPI.validateKeyData(invalidKeyData);
+                    showResult('validation-result', '✗ Invalid key data validation should have failed', 'error');
+                } catch (error) {
+                    showResult('validation-result', '✓ Invalid key data validation correctly failed', 'success');
+                }
+                
+                // Test grant validation
+                const validGrantData = {
+                    key_id: 'test-key-id',
+                    caller_agent_id: 'test-agent',
+                    max_calls_per_day: 100,
+                    expiry_date: new Date(Date.now() + 86400000).toISOString().split('T')[0] // Tomorrow
+                };
+                
+                try {
+                    window.sageAPI.validateGrantData(validGrantData);
+                    showResult('validation-result', '✓ Grant validation working correctly', 'success');
+                } catch (error) {
+                    showResult('validation-result', `✗ Grant validation failed: ${error.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult('validation-result', `✗ Validation test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testNotifications() {
+            try {
+                // Test notification system
+                window.notificationManager.showSuccess('Test success notification');
+                window.notificationManager.showError('Test error notification');
+                window.notificationManager.showInfo('Test info notification');
+                window.notificationManager.showWarning('Test warning notification');
+                
+                showResult('notification-result', '✓ Notification system working - check top right corner', 'success');
+                
+                // Clear notifications after 3 seconds
+                setTimeout(() => {
+                    window.notificationManager.clear();
+                }, 3000);
+                
+            } catch (error) {
+                showResult('notification-result', `✗ Notification test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Run initialization test on page load
+        window.addEventListener('load', () => {
+            testAPIClientInit();
+        });
+    </script>
+</body>
+</html>

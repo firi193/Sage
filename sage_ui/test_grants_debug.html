@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Grants - Sage UI</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Debug Grants - Sage UI</h1>
+        </header>
+        
+        <main class="app-main">
+            <div class="section-header">
+                <h2>Debug Information</h2>
+                <button class="btn-primary" onclick="testGrantsFlow()">Test Grants Flow</button>
+            </div>
+            
+            <div id="debug-output" style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin-bottom: 2rem;">
+                <h3>Debug Output:</h3>
+                <div id="debug-content"></div>
+            </div>
+            
+            <div class="grants-section">
+                <div class="section-header">
+                    <h2>Access Grants</h2>
+                    <div class="grants-controls">
+                        <select id="key-filter" aria-label="Filter grants by key">
+                            <option value="">All Keys</option>
+                        </select>
+                        <button class="btn-primary" id="create-grant-btn">Create Grant</button>
+                    </div>
+                </div>
+                
+                <div class="grants-list" id="grants-list">
+                    <div class="placeholder-content" id="grants-placeholder">
+                        <p>Access grants will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <div class="notifications"></div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    
+    <script>
+        function log(message, data = null) {
+            const debugContent = document.getElementById('debug-content');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.marginBottom = '0.5rem';
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            if (data) {
+                logEntry.innerHTML += `<br><pre style="margin-left: 1rem; font-size: 0.8rem;">${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            debugContent.appendChild(logEntry);
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+        
+        async function testGrantsFlow() {
+            log('Starting grants flow test...');
+            
+            // Check if GrantsManager exists
+            log('GrantsManager available:', !!window.grantsManager);
+            
+            if (!window.grantsManager) {
+                log('Creating GrantsManager...');
+                window.grantsManager = new GrantsManager();
+            }
+            
+            // Check DOM elements
+            const grantsListElement = document.getElementById('grants-list');
+            const placeholderElement = document.getElementById('grants-placeholder');
+            
+            log('DOM Elements:', {
+                grantsListElement: !!grantsListElement,
+                placeholderElement: !!placeholderElement,
+                placeholderVisible: placeholderElement ? placeholderElement.style.display !== 'none' : false
+            });
+            
+            // Test API call
+            try {
+                log('Testing API call to /api/v1/grants...');
+                const response = await fetch('http://localhost:8001/api/v1/grants');
+                log('API Response Status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('API Response Data:', data);
+                    
+                    // Test grants loading
+                    log('Testing grants loading...');
+                    await window.grantsManager.loadGrants();
+                    
+                    log('Grants after loading:', window.grantsManager.grants);
+                    
+                } else {
+                    log('API Error:', await response.text());
+                }
+                
+            } catch (error) {
+                log('API Call Failed:', error.message);
+            }
+            
+            // Check placeholder state after loading
+            setTimeout(() => {
+                log('Final placeholder state:', {
+                    display: placeholderElement ? placeholderElement.style.display : 'not found',
+                    visible: placeholderElement ? placeholderElement.style.display !== 'none' : false,
+                    grantsCount: window.grantsManager ? window.grantsManager.grants.length : 0
+                });
+            }, 1000);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded');
+            
+            // Initialize GrantsManager
+            setTimeout(() => {
+                if (!window.grantsManager && typeof GrantsManager !== 'undefined') {
+                    window.grantsManager = new GrantsManager();
+                    log('GrantsManager initialized');
+                }
+                
+                // Set up create grant button
+                const createGrantBtn = document.getElementById('create-grant-btn');
+                if (createGrantBtn) {
+                    createGrantBtn.addEventListener('click', () => {
+                        log('Create Grant button clicked');
+                        if (window.showCreateGrantForm) {
+                            window.showCreateGrantForm();
+                        }
+                    });
+                }
+                
+                // Set up key filter
+                const keyFilter = document.getElementById('key-filter');
+                if (keyFilter) {
+                    keyFilter.addEventListener('change', () => {
+                        log('Key filter changed to:', keyFilter.value);
+                        if (window.filterGrants) {
+                            window.filterGrants();
+                        }
+                    });
+                }
+                
+                log('Test environment ready');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

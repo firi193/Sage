@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Key Dropdown - Sage UI</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Test Key Dropdown</h1>
+        </header>
+        
+        <main class="app-main">
+            <div class="section-header">
+                <h2>Test Create Grant Modal</h2>
+                <button class="btn-primary" id="test-create-grant">Open Create Grant Modal</button>
+            </div>
+            
+            <div id="debug-info">
+                <h3>Debug Info:</h3>
+                <div id="debug-output"></div>
+            </div>
+        </main>
+        
+        <div class="notifications"></div>
+    </div>
+
+    <!-- Create Grant Modal -->
+    <div class="modal" id="create-grant-modal">
+        <div class="modal-content">
+            <h3>Create Access Grant</h3>
+            <form id="create-grant-form" data-form-type="create-grant">
+                <select name="key_id" required>
+                    <option value="">Select Key</option>
+                </select>
+                <input type="text" name="caller_agent_id" placeholder="Agent/App ID that will use this key" required>
+                <input type="number" name="max_calls_per_day" placeholder="Max Calls Per Day" min="1" required>
+                <input type="date" name="expiry_date" required>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-create-grant">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Grant</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    
+    <script>
+        // Add test keys
+        function addTestKeys() {
+            if (window.keysManager) {
+                const testKey1 = new Key({
+                    key_id: 'key1',
+                    key_name: 'OpenAI Production',
+                    environment: 'prod',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 2
+                });
+                
+                const testKey2 = new Key({
+                    key_id: 'key2',
+                    key_name: 'Anthropic Staging',
+                    environment: 'staging',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 1
+                });
+                
+                const testKey3 = new Key({
+                    key_id: 'key3',
+                    key_name: 'Google AI Test',
+                    environment: 'staging',
+                    created_at: new Date(),
+                    is_active: false,
+                    grant_count: 0
+                });
+                
+                window.keysManager.keys = [testKey1, testKey2, testKey3];
+                console.log('Added test keys:', window.keysManager.keys);
+                
+                updateDebugInfo();
+            }
+        }
+        
+        function updateDebugInfo() {
+            const debugOutput = document.getElementById('debug-output');
+            const keyCount = window.keysManager ? window.keysManager.keys.length : 0;
+            const keyNames = window.keysManager ? window.keysManager.keys.map(k => k.getDisplayName()).join(', ') : 'None';
+            
+            debugOutput.innerHTML = `
+                <p><strong>Keys Manager:</strong> ${window.keysManager ? 'Available' : 'Not Available'}</p>
+                <p><strong>Keys Count:</strong> ${keyCount}</p>
+                <p><strong>Keys:</strong> ${keyNames}</p>
+                <p><strong>Show Create Grant Function:</strong> ${typeof window.showCreateGrantForm}</p>
+                <p><strong>Modal Manager:</strong> ${window.modalManager ? 'Available' : 'Not Available'}</p>
+            `;
+        }
+        
+        function testDropdownPopulation() {
+            const keySelect = document.querySelector('#create-grant-form select[name="key_id"]');
+            console.log('Key select element:', keySelect);
+            console.log('Options before:', Array.from(keySelect.options).map(o => o.textContent));
+            
+            if (window.showCreateGrantForm) {
+                window.showCreateGrantForm();
+                
+                setTimeout(() => {
+                    console.log('Options after:', Array.from(keySelect.options).map(o => o.textContent));
+                    updateDebugInfo();
+                }, 100);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, setting up test environment...');
+            
+            // Initialize GrantsManager if not already done
+            if (!window.grantsManager && typeof GrantsManager !== 'undefined') {
+                window.grantsManager = new GrantsManager();
+                console.log('GrantsManager initialized for testing');
+            }
+            
+            // Add test keys
+            setTimeout(() => {
+                addTestKeys();
+                
+                // Set up test button
+                const testButton = document.getElementById('test-create-grant');
+                if (testButton) {
+                    testButton.addEventListener('click', testDropdownPopulation);
+                }
+                
+                // Set up cancel button
+                const cancelButton = document.getElementById('cancel-create-grant');
+                if (cancelButton) {
+                    cancelButton.addEventListener('click', () => {
+                        if (window.modalManager) {
+                            window.modalManager.closeModal();
+                        }
+                    });
+                }
+                
+                updateDebugInfo();
+                
+                console.log('Test environment ready');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

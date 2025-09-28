@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Grants - Sage API Key Manager</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Sage API Key Manager - Grants Test</h1>
+        </header>
+        
+        <main class="app-main">
+            <div class="grants-section">
+                <div class="section-header">
+                    <h2>Access Grants</h2>
+                    <div class="grants-controls">
+                        <select id="key-filter" aria-label="Filter grants by key">
+                            <option value="">All Keys</option>
+                            <option value="key1">Test Key 1 (staging)</option>
+                            <option value="key2">Test Key 2 (prod)</option>
+                        </select>
+                        <button class="btn-primary" id="create-grant-btn">Create Grant</button>
+                    </div>
+                </div>
+                
+                <div class="grants-list" id="grants-list">
+                    <div class="placeholder-content" id="grants-placeholder">
+                        <p>Access grants will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <div class="notifications"></div>
+    </div>
+
+    <!-- Create Grant Modal -->
+    <div class="modal" id="create-grant-modal">
+        <div class="modal-content">
+            <h3>Create Access Grant</h3>
+            <form id="create-grant-form" data-form-type="create-grant">
+                <select name="key_id" required>
+                    <option value="">Select Key</option>
+                    <option value="key1">Test Key 1 (staging)</option>
+                    <option value="key2">Test Key 2 (prod)</option>
+                </select>
+                <input type="text" name="caller_agent_id" placeholder="Agent/App ID that will use this key" required>
+                <input type="number" name="max_calls_per_day" placeholder="Max Calls Per Day" min="1" required>
+                <input type="date" name="expiry_date" required>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-create-grant">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Grant</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Revoke Grant Confirmation Modal -->
+    <div class="modal" id="revoke-grant-modal">
+        <div class="modal-content">
+            <h3>Revoke Access Grant</h3>
+            <p>Are you sure you want to revoke this access grant? This action cannot be undone.</p>
+            <div class="grant-info" id="revoke-grant-info">
+                <!-- Grant info will be populated here -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancel-revoke-grant">Cancel</button>
+                <button type="button" class="btn-primary" id="confirm-revoke-grant" style="background: #e74c3c;">Revoke Grant</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    
+    <script>
+        // Test data and functions
+        function addTestKeys() {
+            // Add test keys to the keys manager
+            if (window.keysManager) {
+                const testKey1 = new Key({
+                    key_id: 'key1',
+                    key_name: 'Test Key 1',
+                    environment: 'staging',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 0
+                });
+                
+                const testKey2 = new Key({
+                    key_id: 'key2',
+                    key_name: 'Test Key 2',
+                    environment: 'prod',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 0
+                });
+                
+                window.keysManager.keys = [testKey1, testKey2];
+                console.log('Added test keys:', window.keysManager.keys);
+                
+                // Update key filter dropdown
+                if (window.grantsManager) {
+                    window.grantsManager.populateKeyFilter(window.keysManager.keys);
+                }
+            }
+        }
+        
+        function addTestGrant() {
+            const testGrant = new Grant({
+                grant_id: 'test-grant-1',
+                key_id: 'key1',
+                key_name: 'Test Key 1',
+                caller_id: 'test-agent-123',
+                max_calls_per_day: 100,
+                current_usage: 25,
+                expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+                created_at: new Date(),
+                is_active: true
+            });
+            
+            window.grantsManager.grants.push(testGrant);
+            window.grantsManager.renderGrants();
+        }
+        
+        function addExpiringGrant() {
+            const expiringGrant = new Grant({
+                grant_id: 'test-grant-2',
+                key_id: 'key2',
+                key_name: 'Test Key 2',
+                caller_id: 'expiring-agent-456',
+                max_calls_per_day: 50,
+                current_usage: 45,
+                expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000), // 12 hours from now
+                created_at: new Date(),
+                is_active: true
+            });
+            
+            window.grantsManager.grants.push(expiringGrant);
+            window.grantsManager.renderGrants();
+        }
+        
+        // Set up test environment
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Setting up grants test environment...');
+            
+            // Initialize GrantsManager if not already done
+            if (!window.grantsManager && typeof GrantsManager !== 'undefined') {
+                window.grantsManager = new GrantsManager();
+                console.log('GrantsManager initialized for testing');
+            }
+            
+            // Set up create grant button
+            const createGrantBtn = document.getElementById('create-grant-btn');
+            if (createGrantBtn) {
+                createGrantBtn.addEventListener('click', () => {
+                    console.log('Create Grant button clicked');
+                    if (window.showCreateGrantForm) {
+                        window.showCreateGrantForm();
+                    }
+                });
+            }
+            
+            // Set up cancel buttons
+            const cancelCreateGrantBtn = document.getElementById('cancel-create-grant');
+            if (cancelCreateGrantBtn) {
+                cancelCreateGrantBtn.addEventListener('click', () => {
+                    if (window.modalManager) {
+                        window.modalManager.closeModal();
+                    }
+                    const form = document.getElementById('create-grant-form');
+                    if (form) {
+                        form.reset();
+                    }
+                });
+            }
+            
+            const cancelRevokeGrantBtn = document.getElementById('cancel-revoke-grant');
+            if (cancelRevokeGrantBtn) {
+                cancelRevokeGrantBtn.addEventListener('click', () => {
+                    if (window.modalManager) {
+                        window.modalManager.closeModal();
+                    }
+                });
+            }
+            
+            // Set up key filter
+            const keyFilter = document.getElementById('key-filter');
+            if (keyFilter) {
+                keyFilter.addEventListener('change', () => {
+                    if (window.filterGrants) {
+                        window.filterGrants();
+                    }
+                });
+            }
+            
+            // Set up form submission
+            document.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+                
+                if (form.getAttribute('data-form-type') === 'create-grant') {
+                    console.log('Grant form submitted:', data);
+                    
+                    // Validate form
+                    const errors = window.formValidator.validateGrantForm(data);
+                    if (errors.length > 0) {
+                        window.formValidator.displayErrors(form, errors);
+                        window.notificationManager.showError(errors[0]);
+                        return;
+                    }
+                    
+                    // Simulate successful creation
+                    const newGrant = new Grant({
+                        grant_id: 'grant-' + Date.now(),
+                        key_id: data.key_id,
+                        key_name: data.key_id === 'key1' ? 'Test Key 1' : 'Test Key 2',
+                        caller_id: data.caller_agent_id,
+                        max_calls_per_day: parseInt(data.max_calls_per_day),
+                        current_usage: 0,
+                        expires_at: new Date(data.expiry_date),
+                        created_at: new Date(),
+                        is_active: true
+                    });
+                    
+                    window.grantsManager.grants.push(newGrant);
+                    window.grantsManager.renderGrants();
+                    
+                    window.modalManager.closeModal();
+                    form.reset();
+                    window.notificationManager.showSuccess('Access grant created successfully');
+                }
+            });
+            
+            // Add test buttons
+            setTimeout(() => {
+                const header = document.querySelector('.section-header');
+                if (header) {
+                    const testButtons = document.createElement('div');
+                    testButtons.innerHTML = `
+                        <button class="btn-secondary" onclick="addTestKeys()" style="margin-left: 1rem;">Add Test Keys</button>
+                        <button class="btn-secondary" onclick="addTestGrant()" style="margin-left: 0.5rem;">Add Test Grant</button>
+                        <button class="btn-secondary" onclick="addExpiringGrant()" style="margin-left: 0.5rem;">Add Expiring Grant</button>
+                    `;
+                    header.appendChild(testButtons);
+                }
+                
+                // Automatically add test keys for easier testing
+                addTestKeys();
+                
+                console.log('Test environment ready. Available functions:', {
+                    grantsManager: !!window.grantsManager,
+                    modalManager: !!window.modalManager,
+                    formValidator: !!window.formValidator,
+                    notificationManager: !!window.notificationManager,
+                    showCreateGrantForm: !!window.showCreateGrantForm,
+                    revokeGrant: !!window.revokeGrant
+                });
+            }, 1000);
+        });
+        
+        // Make test functions global
+        window.addTestKeys = addTestKeys;
+        window.addTestGrant = addTestGrant;
+        window.addExpiringGrant = addExpiringGrant;
+    </script>
+</body>
+</html>

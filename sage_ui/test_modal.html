@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Test</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <h1>Modal Test</h1>
+        <button class="btn-primary" onclick="showAddKeyForm()">Test Add Key Modal</button>
+        
+        <!-- Add Key Modal -->
+        <div class="modal" id="add-key-modal">
+            <div class="modal-content">
+                <h3>Add New API Key</h3>
+                <form id="add-key-form" data-form-type="add-key">
+                    <input type="text" name="key_name" placeholder="Key Name (e.g., 'OpenAI Production')" required>
+                    <select name="environment" required>
+                        <option value="">Select Environment</option>
+                        <option value="staging">Staging</option>
+                        <option value="prod">Production</option>
+                    </select>
+                    <textarea name="api_key" placeholder="API Key" required rows="3"></textarea>
+                    <div class="modal-actions">
+                        <button type="button" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn-primary">Add Key</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    <script>
+        function showAddKeyForm() {
+            console.log('Test showAddKeyForm called');
+            const modal = document.getElementById('add-key-modal');
+            if (modal) {
+                modal.classList.add('active');
+                console.log('Modal should be visible now');
+            } else {
+                console.error('Modal not found');
+            }
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('add-key-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 """
-Key storage service using SQLite database for encrypted API key persistence
+Key storage service using configurable database for encrypted API key persistence
+Supports both SQLite (development) and PostgreSQL (production)
 """
 
 import sqlite3
@@ -9,65 +10,104 @@ from typing import List, Optional, Dict, Any
 from contextlib import contextmanager
 
 from ..models.stored_key import StoredKey
+from ..config.database import get_db_connection, is_postgres
 from ..utils.encryption import EncryptionManager
 
 
 class KeyStorageService:
     """
-    SQLite-based storage service for encrypted API keys
+    Configurable storage service for encrypted API keys
+    Supports both SQLite (development) and PostgreSQL (production)
     """
     
-    def __init__(self, db_path: str = "sage_keys.db", encryption_manager: EncryptionManager = None):
+    def __init__(self, encryption_manager: EncryptionManager = None):
         """
         Initialize key storage service
         
         Args:
-            db_path: Path to SQLite database file
             encryption_manager: Encryption manager for key protection
         """
-        self.db_path = db_path
         self.encryption_manager = encryption_manager or EncryptionManager()
         self._init_database()
     
     def _init_database(self) -> None:
-        """Initialize SQLite database with required tables"""
-        with self._get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS stored_keys (
-                    key_id TEXT PRIMARY KEY,
-                    owner_id TEXT NOT NULL,
-                    key_name TEXT NOT NULL,
-                    encrypted_key BLOB NOT NULL,
-                    created_at TEXT NOT NULL,
-                    last_rotated TEXT NOT NULL,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    coral_session_id TEXT NOT NULL,
-                    UNIQUE(owner_id, key_name)
-                )
-            """)
-            
-            # Create indexes for better query performance
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_owner_id 
-                ON stored_keys(owner_id)
-            """)
-            
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_active_keys 
-                ON stored_keys(is_active, owner_id)
-            """)
+        """Initialize database with required tables"""
+        with get_db_connection('keys') as conn:
+            if is_postgres():
+                # PostgreSQL table creation
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS sage_keys_stored_keys (
+                        key_id TEXT PRIMARY KEY,
+                        owner_id TEXT NOT NULL,
+                        key_name TEXT NOT NULL,
+                        encrypted_key BYTEA NOT NULL,
+                        created_at TEXT NOT NULL,
+                        last_rotated TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        coral_session_id TEXT NOT NULL,
+                        UNIQUE(owner_id, key_name)
+                    )
+                """)
+                
+                # Create indexes for better query performance
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_owner_id 
+                    ON sage_keys_stored_keys(owner_id)
+                """)
+                
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_active_keys 
+                    ON sage_keys_stored_keys(is_active, owner_id)
+                """)
+            else:
+                # SQLite table creation
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS stored_keys (
+                        key_id TEXT PRIMARY KEY,
+                        owner_id TEXT NOT NULL,
+                        key_name TEXT NOT NULL,
+                        encrypted_key BLOB NOT NULL,
+                        created_at TEXT NOT NULL,
+                        last_rotated TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        coral_session_id TEXT NOT NULL,
+                        UNIQUE(owner_id, key_name)
+                    )
+                """)
+                
+                # Create indexes for better query performance
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_owner_id 
+                    ON stored_keys(owner_id)
+                """)
+                
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_active_keys 
+                    ON stored_keys(is_active, owner_id)
+                """)
             
             conn.commit()
+    
+    def _get_table_name(self) -> str:
+        """Get the correct table name based on database type"""
+        return "sage_keys_stored_keys" if is_postgres() else "stored_keys"
+    
+    def _get_param_placeholder(self) -> str:
+        """Get the correct parameter placeholder based on database type"""
+        return "%s" if is_postgres() else "?"
     
     @contextmanager
     def _get_connection(self):
         """Context manager for database connections"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable column access by name
-        try:
-            yield conn
-        finally:
-            conn.close()
+        with get_db_connection('keys') as conn:
+            if is_postgres():
+                # PostgreSQL connection
+                conn.row_factory = None  # PostgreSQL doesn't use row_factory
+                yield conn
+            else:
+                # SQLite connection
+                conn.row_factory = sqlite3.Row  # Enable column access by name
+                yield conn
     
     def store_key(self, stored_key: StoredKey) -> bool:
         """
@@ -84,11 +124,15 @@ class KeyStorageService:
         
         try:
             with self._get_connection() as conn:
-                conn.execute("""
-                    INSERT INTO stored_keys 
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                conn.execute(f"""
+                    INSERT INTO {table_name} 
                     (key_id, owner_id, key_name, encrypted_key, created_at, 
                      last_rotated, is_active, coral_session_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, 
+                           {placeholder}, {placeholder}, {placeholder})
                 """, (
                     stored_key.key_id,
                     stored_key.owner_id,
@@ -101,10 +145,12 @@ class KeyStorageService:
                 ))
                 conn.commit()
                 return True
-        except sqlite3.IntegrityError:
+        except (sqlite3.IntegrityError, Exception) as e:
             # Key already exists or constraint violation
-            return False
-        except Exception:
+            if is_postgres():
+                import psycopg2
+                if isinstance(e, psycopg2.IntegrityError):
+                    return False
             return False
     
     def get_key(self, key_id: str) -> Optional[StoredKey]:
@@ -119,8 +165,11 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    SELECT * FROM stored_keys WHERE key_id = ?
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                cursor = conn.execute(f"""
+                    SELECT * FROM {table_name} WHERE key_id = {placeholder}
                 """, (key_id,))
                 row = cursor.fetchone()
                 
@@ -143,16 +192,19 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
                 if active_only:
-                    cursor = conn.execute("""
-                        SELECT * FROM stored_keys 
-                        WHERE owner_id = ? AND is_active = 1
+                    cursor = conn.execute(f"""
+                        SELECT * FROM {table_name} 
+                        WHERE owner_id = {placeholder} AND is_active = 1
                         ORDER BY created_at DESC
                     """, (owner_id,))
                 else:
-                    cursor = conn.execute("""
-                        SELECT * FROM stored_keys 
-                        WHERE owner_id = ?
+                    cursor = conn.execute(f"""
+                        SELECT * FROM {table_name} 
+                        WHERE owner_id = {placeholder}
                         ORDER BY created_at DESC
                     """, (owner_id,))
                 
@@ -176,11 +228,14 @@ class KeyStorageService:
         
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    UPDATE stored_keys 
-                    SET owner_id = ?, key_name = ?, encrypted_key = ?, 
-                        last_rotated = ?, is_active = ?, coral_session_id = ?
-                    WHERE key_id = ?
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                cursor = conn.execute(f"""
+                    UPDATE {table_name} 
+                    SET owner_id = {placeholder}, key_name = {placeholder}, encrypted_key = {placeholder}, 
+                        last_rotated = {placeholder}, is_active = {placeholder}, coral_session_id = {placeholder}
+                    WHERE key_id = {placeholder}
                 """, (
                     stored_key.owner_id,
                     stored_key.key_name,
@@ -207,8 +262,11 @@ class KeyStorageService:
         """
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    DELETE FROM stored_keys WHERE key_id = ?
+                table_name = self._get_table_name()
+                placeholder = self._get_param_placeholder()
+                
+                cursor = conn.execute(f"""
+                    DELETE FROM {table_name} WHERE key_id = {placeholder}
                 """, (key_id,))
                 conn.commit()
                 return cursor.rowcount > 0

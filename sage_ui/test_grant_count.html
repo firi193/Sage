@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Grant Count - Sage UI</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Test Grant Count - Sage UI</h1>
+        </header>
+        
+        <main class="app-main">
+            <div class="section-header">
+                <h2>Test Grant Count Updates</h2>
+                <div>
+                    <button class="btn-primary" onclick="setupTestData()">Setup Test Data</button>
+                    <button class="btn-secondary" onclick="createTestGrant()" style="margin-left: 0.5rem;">Create Test Grant</button>
+                    <button class="btn-secondary" onclick="revokeTestGrant()" style="margin-left: 0.5rem;">Revoke Test Grant</button>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <!-- Keys Section -->
+                <div class="keys-section">
+                    <h3>API Keys</h3>
+                    <div class="keys-list" id="keys-list">
+                        <div class="placeholder-content" id="keys-placeholder">
+                            <p>Your API keys will appear here</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Grants Section -->
+                <div class="grants-section">
+                    <h3>Access Grants</h3>
+                    <div class="grants-list" id="grants-list">
+                        <div class="placeholder-content" id="grants-placeholder">
+                            <p>Access grants will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="debug-info" style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin-top: 2rem;">
+                <h3>Debug Info:</h3>
+                <div id="debug-content"></div>
+            </div>
+        </main>
+        
+        <div class="notifications"></div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    
+    <script>
+        let testGrantId = null;
+        let testKeyId = null;
+        
+        function log(message, data = null) {
+            const debugContent = document.getElementById('debug-content');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.marginBottom = '0.5rem';
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            if (data) {
+                logEntry.innerHTML += `<br><pre style="margin-left: 1rem; font-size: 0.8rem;">${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            debugContent.appendChild(logEntry);
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+        
+        function setupTestData() {
+            log('Setting up test data...');
+            
+            // Create test keys
+            if (window.keysManager) {
+                const testKey1 = new Key({
+                    key_id: 'test-key-1',
+                    key_name: 'Test Key 1',
+                    environment: 'staging',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 0
+                });
+                
+                const testKey2 = new Key({
+                    key_id: 'test-key-2',
+                    key_name: 'Test Key 2',
+                    environment: 'prod',
+                    created_at: new Date(),
+                    is_active: true,
+                    grant_count: 0
+                });
+                
+                window.keysManager.keys = [testKey1, testKey2];
+                window.keysManager.renderKeys();
+                testKeyId = testKey1.key_id;
+                
+                log('Test keys created:', window.keysManager.keys.map(k => ({
+                    id: k.key_id,
+                    name: k.key_name,
+                    grant_count: k.grant_count
+                })));
+            }
+            
+            // Create test grants
+            if (window.grantsManager) {
+                const testGrant1 = new Grant({
+                    grant_id: 'test-grant-1',
+                    key_id: 'test-key-1',
+                    key_name: 'Test Key 1',
+                    caller_id: 'test-agent-1',
+                    max_calls_per_day: 100,
+                    current_usage: 25,
+                    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    created_at: new Date(),
+                    is_active: true
+                });
+                
+                window.grantsManager.grants = [testGrant1];
+                window.grantsManager.renderGrants();
+                testGrantId = testGrant1.grant_id;
+                
+                // Update key grant counts
+                window.grantsManager.updateAllKeyGrantCounts();
+                
+                log('Test grants created:', window.grantsManager.grants.map(g => ({
+                    id: g.grant_id,
+                    key_id: g.key_id,
+                    caller_id: g.caller_id,
+                    is_active: g.is_active
+                })));
+                
+                log('Key grant counts after setup:', window.keysManager.keys.map(k => ({
+                    id: k.key_id,
+                    name: k.key_name,
+                    grant_count: k.grant_count
+                })));
+            }
+        }
+        
+        function createTestGrant() {
+            if (!testKeyId) {
+                log('No test key available. Run setup first.');
+                return;
+            }
+            
+            log('Creating new test grant...');
+            
+            const newGrantId = 'test-grant-' + Date.now();
+            const newGrant = new Grant({
+                grant_id: newGrantId,
+                key_id: testKeyId,
+                key_name: 'Test Key 1',
+                caller_id: 'new-test-agent-' + Date.now(),
+                max_calls_per_day: 50,
+                current_usage: 0,
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                created_at: new Date(),
+                is_active: true
+            });
+            
+            // Add grant to grants manager
+            window.grantsManager.grants.push(newGrant);
+            window.grantsManager.renderGrants();
+            
+            // Update key grant count
+            window.grantsManager.updateKeyGrantCount(testKeyId, 1);
+            
+            log('New grant created:', {
+                id: newGrant.grant_id,
+                key_id: newGrant.key_id,
+                caller_id: newGrant.caller_id
+            });
+            
+            log('Key grant counts after creation:', window.keysManager.keys.map(k => ({
+                id: k.key_id,
+                name: k.key_name,
+                grant_count: k.grant_count
+            })));
+        }
+        
+        function revokeTestGrant() {
+            if (!window.grantsManager.grants.length) {
+                log('No grants available to revoke.');
+                return;
+            }
+            
+            const grantToRevoke = window.grantsManager.grants.find(g => g.is_active);
+            if (!grantToRevoke) {
+                log('No active grants to revoke.');
+                return;
+            }
+            
+            log('Revoking grant:', {
+                id: grantToRevoke.grant_id,
+                key_id: grantToRevoke.key_id,
+                caller_id: grantToRevoke.caller_id
+            });
+            
+            // Mark grant as inactive
+            grantToRevoke.is_active = false;
+            window.grantsManager.renderGrants();
+            
+            // Update key grant count
+            window.grantsManager.updateKeyGrantCount(grantToRevoke.key_id, -1);
+            
+            log('Key grant counts after revocation:', window.keysManager.keys.map(k => ({
+                id: k.key_id,
+                name: k.key_name,
+                grant_count: k.grant_count
+            })));
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded, initializing managers...');
+            
+            setTimeout(() => {
+                // Initialize managers
+                if (!window.keysManager && typeof KeysManager !== 'undefined') {
+                    window.keysManager = new KeysManager();
+                    log('KeysManager initialized');
+                }
+                
+                if (!window.grantsManager && typeof GrantsManager !== 'undefined') {
+                    window.grantsManager = new GrantsManager();
+                    log('GrantsManager initialized');
+                }
+                
+                log('Test environment ready. Click "Setup Test Data" to begin.');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

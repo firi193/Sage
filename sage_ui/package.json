@@ -1,0 +1,12 @@
+{
+  "name": "sage-ui",
+  "version": "1.0.0",
+  "description": "Sage API Key Manager Frontend",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'",
+    "start": "echo 'Static site - serve index.html'"
+  },
+  "keywords": ["api", "key", "management", "sage"],
+  "author": "Your Name",
+  "license": "MIT"
+}
